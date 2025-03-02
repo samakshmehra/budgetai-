@@ -23,10 +23,10 @@ def load_budget_limits():
     if os.path.exists(BUDGET_FILE):
         return pd.read_csv(BUDGET_FILE)
     else:
-        return pd.DataFrame(columns=["Category", "Percentage", "Name", "Salary"])
+        return pd.DataFrame(columns=["Category", "Percentage_AI", "Salary"])
 
 # Streamlit UI
-st.title("💰 Monthly Budget Tracker with Alerts")
+st.title("💰 Monthly Budget Tracker with Alerts & Visualization")
 
 # Ask for salary (store in session state)
 if "salary" not in st.session_state:
@@ -46,7 +46,8 @@ if st.session_state.salary:
     
     # User Input Fields
     date = st.date_input("Select Date")
-    category = st.selectbox("Category", df_budget["Category"].unique() if not df_budget.empty else ["Food", "Transport", "Entertainment", "Shopping", "Bills", "Other", "Savings", "Rent"])
+    category = st.selectbox("Category", df_budget["Category"].unique() if not df_budget.empty else 
+                            ["Food", "Transport", "Entertainment", "Shopping", "Bills", "Other", "Savings", "Rent"])
     amount = st.number_input("Amount Spent", min_value=0.0, format="%.2f")
     note = st.text_area("Notes (Optional)")
     
@@ -69,7 +70,7 @@ if st.session_state.salary:
             
             df = pd.concat([df, new_entry], ignore_index=True)
             save_data(df)
-            st.success("Expense Added Successfully!")
+            st.success("✅ Expense Added Successfully!")
             
             # Check if spending exceeds budget limit
             if not df_budget.empty and category in df_budget["Category"].values:
@@ -77,11 +78,33 @@ if st.session_state.salary:
                 total_spent_category = df[df["Category"] == category]["Amount"].sum()
                 allowed_budget = (category_limit / 100) * st.session_state.salary
                 
+                # Calculate spending percentage
+                category_spent_percentage = (total_spent_category / allowed_budget) * 100
+                
+                # Display progress bar for category spending
+                st.progress(min(category_spent_percentage / 100, 1.0))  
+                
+                # Alert if 50% of budget is used
+                if total_spent_category >= 0.5 * allowed_budget:
+                    st.warning(f"⚠️ You have used **50%** of your budget for {category}. "
+                               f"Limit: ₹{allowed_budget:.2f}, Spent: ₹{total_spent_category:.2f}")
+
+                # Alert if budget is exceeded
                 if total_spent_category > allowed_budget:
-                    st.error(f"⚠️ You have exceeded your budget for {category}! Limit: ₹{allowed_budget:.2f}, Spent: ₹{total_spent_category:.2f}")
+                    st.error(f"🚨 You have **exceeded** your budget for {category}! "
+                             f"Limit: ₹{allowed_budget:.2f}, Spent: ₹{total_spent_category:.2f}")
         else:
-            st.error("Please enter a valid amount.")
+            st.error("❌ Please enter a valid amount.")
     
+    # Load and display expense data
+    st.subheader("📊 Expense Summary")
+    df = load_data()
+    if not df.empty:
+        st.dataframe(df)
+
+else:
+    st.warning("⚠️ Please enter and save your salary first.")
+
     # Load data to display
     
     
